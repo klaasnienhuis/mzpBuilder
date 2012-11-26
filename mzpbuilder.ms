@@ -2,7 +2,7 @@
 <SCRIPTFILE>
 Created: 2012-11-26
 Last Updated: 2012-11-26
-Version: 0.10
+Version: 1
 
 Author: Klaas Nienhuis, mail@klaasnienhuis.nl, www.klaasnienhuis.nl
 Version: 3ds max 2012
@@ -10,13 +10,14 @@ Version: 3ds max 2012
 Description:
 	Create mzp-files from a list of files
 Usage:
-	RUN IT
+	specifiy a list of files and a list of destinations and run the script to create an mzp-file from it
 
 Features:
 
 Wishlist:
 Changelog:
-	date: change
+	2012-11-26: first setup, used the zip-methods from teh sketchfab script
+	2012-11-26: added fn_writeRunFile method to write a runfile
 </SCRIPTFILE>
 *******************************************************************************************************/
 
@@ -64,6 +65,7 @@ function fn_writeRunFile arrPath arrDest pathDest runIndices:#() =
 		<string> pathDest: the location where the run-file has to go.
 		<array> runIndices: an array of integers indicating the files which need to be run (when the mzp is executed that is) besides being copied
 	Return:
+		file on disk
 		<string> the path to the mzp.run file
 	</FUNCTION>*/
 	
@@ -77,12 +79,10 @@ function fn_writeRunFile arrPath arrDest pathDest runIndices:#() =
 	--format the content to the file
 	format "name \"Sketchfab\"\ndescription \"Klaas Nienhuis Scripts\"\nversion 7\n\n" to:theRunFile --the header
 	
-	for i = 1 to arrPath.count do format "copy \"%\" to \"%\"\n" arrPath[i] arrDest[i] to:theRunFile--(substituteString i sourcePath "") to:theZipList --slice off the common root. Only possible when working from a drive-letter, not a unc-path. Why? Unknown!
+	for i = 1 to arrPath.count do format "copy \"%\" to \"%\"\n" arrPath[i] arrDest[i] to:theRunFile
+	format "\n" to:theRunFile	
+	for i in runIndices do format "run %\n" (arrDest[i] + (filenameFromPath  arrPath[i])) to:theRunFile
 		
-	for i in runIndices do
-	(
-		format "run %\n" (arrDest[i] + arrPath[i]) to:theRunFile
-	)
 	format "\nclear temp on MAX exit" to:theRunFile
 	flush theRunFile
 	close theRunFile
@@ -210,7 +210,9 @@ struct zipStruct
 	)
 )
 
-zipStruct = zipStruct()
-zipStruct.fn_zipFiles rootPath:rootPath targetPath:@"N:\GitHub\mzpBuilder\Demo_files\" zipName:"Bingo" arrPath:arrPath
-
 fn_writeRunFile arrPath arrDest rootPath runIndices:runIndices
+append arrPath "mzp.run"
+
+zipStruct = zipStruct()
+theZipFile = zipStruct.fn_zipFiles rootPath:rootPath targetPath:@"N:\GitHub\mzpBuilder\Demo_files\" zipName:"Bingo" arrPath:arrPath
+renameFile theZipFile ((getFilenameFile theZipFile) + ".mzp") --change the extension

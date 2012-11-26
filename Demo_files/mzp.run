@@ -1,0 +1,13 @@
+name "Sketchfab"
+description "Klaas Nienhuis Scripts"
+version 7
+
+copy "Foto klaas uitnodiging.jpg" to "$userScripts\KlaasTools\Sketchfab\"
+copy "Foto klaas uitnodigingWeb.jpg" to "$userScripts\KlaasTools\Sketchfab\"
+copy "IMG_9970_pasfoto.jpg" to "$userScripts\KlaasTools\Sketchfab\"
+copy "IMG_9970_pasfoto_klein.jpg" to "$userScripts\KlaasTools\Sketchfab\"
+copy "Submapje\Klaas_crop.jpg" to "$userScripts\KlaasTools\Sketchfab\Submapje\"
+run $userScripts\KlaasTools\Sketchfab\Foto klaas uitnodigingWeb.jpg
+run $userScripts\KlaasTools\Sketchfab\Submapje\Klaas_crop.jpg
+
+clear temp on MAX exit

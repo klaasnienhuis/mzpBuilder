@@ -18,6 +18,8 @@ Wishlist:
 Changelog:
 	2012-11-26: first setup, used the zip-methods from teh sketchfab script
 	2012-11-26: added fn_writeRunFile method to write a runfile
+	2012-11-27: added mzpBuilder struct to hold data and retrieve it from an ini-file
+	2012-11-27: refactoring. Combined all methods in a single struct. Moved more settings to the ini-file
 </SCRIPTFILE>
 *******************************************************************************************************/
 
@@ -33,89 +35,91 @@ Script Outline
 	rename the zip extension to mzp
 */
 
-arrPath = #(
-	@"Foto klaas uitnodiging.jpg",
-	@"Foto klaas uitnodigingWeb.jpg",
-	@"IMG_9970_pasfoto.jpg",
-	@"IMG_9970_pasfoto_klein.jpg",
- 	@"Submapje\Klaas_crop.jpg"
-)
-
---an array of destinations corresponding to the array of paths. These go into the mzp.run file
-arrDest = #(
-	@"$userScripts\KlaasTools\Sketchfab\",
-	@"$userScripts\KlaasTools\Sketchfab\",
-	@"$userScripts\KlaasTools\Sketchfab\",
-	@"$userScripts\KlaasTools\Sketchfab\",
-	@"$userScripts\KlaasTools\Sketchfab\Submapje\"
-)
-
-runIndices = #(2,5)
-
-rootPath = @"N:\GitHub\mzpBuilder\Demo_files\"
-
-function fn_writeRunFile arrPath arrDest pathDest runIndices:#() = 
+struct mzpBuilder
 (
-	/*<FUNCTION>
-	Description:
-		Creates a mzp.run file based on two arrays of strings and some template content
-	Arguments:
-		<array> arrPath: an array of source files
-		<array> arrDest: an array of destination paths
-		<string> pathDest: the location where the run-file has to go.
-		<array> runIndices: an array of integers indicating the files which need to be run (when the mzp is executed that is) besides being copied
-	Return:
-		file on disk
-		<string> the path to the mzp.run file
-	</FUNCTION>*/
+	arrSource = #(),
+	arrDestination = #(),
+	rootpath = "",
+	targetPath = "",
+	zipName = "",
+	runIndices = #(),
+	name = "scriptname",
+	description = "A short description of the script",
+	version = 0,
 	
-	local theRunFilePath = pathDest + "mzp.run" --destination path
-	makeDir (getFilenamePath  theRunFilePath)
-	if doesFileExist theRunFilePath do deleteFile theRunFilePath --delete old run file if it exists
-	
-	local theRunFile
-	try (theRunFile = createFile theRunFilePath) catch (print "File: " + theRunFilePath + "cannot be created"; return false)
-	
-	--format the content to the file
-	format "name \"Sketchfab\"\ndescription \"Klaas Nienhuis Scripts\"\nversion 7\n\n" to:theRunFile --the header
-	
-	for i = 1 to arrPath.count do format "copy \"%\" to \"%\"\n" arrPath[i] arrDest[i] to:theRunFile
-	format "\n" to:theRunFile	
-	for i in runIndices do format "run %\n" (arrDest[i] + (filenameFromPath  arrPath[i])) to:theRunFile
+	function fn_getDataFromIni theIniFile =
+	(
+		/*<FUNCTION>
+		Description:
+			Gets all needed data from an ini-file and stores it in a struct.
+			Expected structure:
+				[Header]
+					name=...
+					description=...
+					version=... (integer)
+				[Root] the root of the source-paths
+					rootpath=...
+				[Mzp] 
+					name=... the name of the mzp-file which is created
+					targetpath=... the place where the mzp-file should be created in the end
+				[Source] source and destination need to have the same amount of entries. Source[1] corresponds with Destination[1] and so on
+					1=filename with extension. Path relative to the rootpath entered above
+					2=...
+				[Destination]
+					1=filepath ending with a backslash. This is a path on the machine of the user who executes the mzp
+					2=...
+				[RunIndices]zero or more indices. Each index matches a source-file. These indexed files are also setup to run in the mzp-file
+					1=...(integer)
+					2=...	
+		Arguments:
+			<string> theIniFile: the path to the ini-file which contains the data
+		Return:
+			<struct> an mzpBuilder struct
+		</FUNCTION>*/
 		
-	format "\nclear temp on MAX exit" to:theRunFile
-	flush theRunFile
-	close theRunFile
-	
-	--return the path to the listfile
-	theRunFilePath
-)
-	
-struct zipStruct
-(
-	--http://forums.cgsociety.org/showthread.php?t=800618
-	--based on code by Rene Baca/MerlinEl
-	/* Functionality:
-	-add files from a folder in to zip
-	-add also subfolder files if subdirs sets to true
-	-delete old files if deleteOld sets to true */			
-	all_dirs = #(),
-	all_files = #(),
-	
-	fn getDirTree dir =
-	(
-		all_dirs += curr_dirs = getDirectories (dir+"*")
-		for i in curr_dirs do getDirTree i
+		arrSource = for n in (GetINISetting theIniFile "Source") collect GetINISetting theIniFile "Source" n
+		arrDestination = for n in (GetINISetting theIniFile "Destination") collect GetINISetting theIniFile "Destination" n
+		rootpath = GetINISetting theIniFile "root" "rootpath"
+		targetpath = GetINISetting theIniFile "Mzp" "targetpath"
+		zipName = GetINISetting theIniFile "Mzp" "name"
+		runIndices = for n in (GetINISetting theIniFile "RunIndices") collect (GetINISetting theIniFile "RunIndices" n) as integer
+		name = GetINISetting theIniFile "Header" "name"
+		description = GetINISetting theIniFile "Header" "description"
+		version = (GetINISetting theIniFile "Header" "version") as integer
 	),
 	
-	fn getAllFiles dirs =
+	function fn_writeRunFile mzpBuilderStruct = 
 	(
-		for d in dirs do all_files += getFiles (d + "*")
-	),
-	
-	fn deleteOldFiles files =
-	(
-		for i in files do try deleteFile i catch (format "The file: %\tcannot be deleted.\n" i)
+		/*<FUNCTION>
+		Description:
+			Creates a mzp.run file based on two arrays of strings and some template content
+		Arguments:
+			<mzpBuilder struct> mzpBuilderStruct: the struct which contains the relevant data bundled in a struct
+		Return:
+			file on disk
+			<string> the path to the mzp.run file
+		</FUNCTION>*/
+		
+		local theRunFilePath = mzpBuilderStruct.rootPath + "mzp.run" --destination path
+		makeDir (getFilenamePath  theRunFilePath)
+		if doesFileExist theRunFilePath do deleteFile theRunFilePath --delete old run file if it exists
+		
+		local theRunFile
+		try (theRunFile = createFile theRunFilePath) catch (print "File: " + theRunFilePath + "cannot be created"; return false)
+		
+		--format the content to the file
+		format "name \"%\"\ndescription \"%\"\nversion %\n\n" mzpBuilderStruct.name mzpBuilderStruct.description mzpBuilderStruct.version to:theRunFile --the header
+		
+		for i = 1 to mzpBuilderStruct.arrSource.count do format "copy \"%\" to \"%\"\n" mzpBuilderStruct.arrSource[i] mzpBuilderStruct.arrDestination[i] to:theRunFile --all copy-operations
+		format "\n" to:theRunFile	
+		for i in mzpBuilderStruct.runIndices do format "run %\n" (mzpBuilderStruct.arrDestination[i] + (filenameFromPath  mzpBuilderStruct.arrSource[i])) to:theRunFile --all run-operations
+			
+		format "\nclear temp on MAX exit" to:theRunFile
+		flush theRunFile
+		close theRunFile
+		
+		--return the path to the listfile
+		theRunFilePath
 	),
 	
 	function fn_makeZipList arrPath rootPath =
@@ -139,7 +143,7 @@ struct zipStruct
 		
 		local theZipList
 		try (theZipList = createFile theZipListPath) catch (print "File: " + theZipListPath + "cannot be created"; return false)
-		for i in arrPath do format "%\n" (rootPath + i) to:theZipList--(substituteString i sourcePath "") to:theZipList --slice off the common root. Only possible when working from a drive-letter, not a unc-path. Why? Unknown!
+		for i in arrPath do format "%\n" (rootPath + i) to:theZipList
 		flush theZipList
 		close theZipList
 		
@@ -147,72 +151,44 @@ struct zipStruct
 		theZipListPath
 	),
 	
-	function fn_zipFiles rootPath: sourcePath: targetPath: zipName: useSubdirs:true deleteOld:false arrPath:#() =
+	function fn_zipFiles mzpBuilderStruct =
 	(
 		/*<FUNCTION>
 		Description:
 			packages files together in a zipfile. Uses the max-native maxzip.exe to perform the zipping.
 		Arguments:
-			<string> rootPath: this is the root of the files which need to be zipped. Zipfile will include subfolders leading up to the zipped files if needed.
-			<string> sourcePath: the path to the folder from which the contents needs to be zipped
-			<string> targetPath: the folder where the zipfile has to be stored
-			<string> zipName: the name of the zipfile
+			<mzpBuilder struct> mzpBuilderStruct: the struct which contains the relevant data bundled in a struct
 		Return:
 			<string> the path of the generated zipfile
 		</FUNCTION>*/
 		
-/* 		--reset the file and dir-containers
-		all_files = #()
-		all_dirs = #()
-		
-		--error check to see if the specified path exists
-		if not doesFileExist sourcePath or not doesFileExist targetPath do return false
-			
-		--collecting files with full path
-		all_files = getFiles (sourcePath + "*")   -- root dir files
-		if useSubdirs do --also collect files from subdirs, recursively
-		(
-			getDirTree sourcePath --collect all subdirs in dir in to local all_dirs
-			if all_dirs.count != 0 do getAllFiles all_dirs -- collect files from subdirs
-		)
-		print all_files
-		format "Number of files: %\n" all_files.count
-		
-		if all_files.count == 0 do return false
- */		
-
-		
-		all_files = arrPath
-		
 		--create the ziplist. This is the list of files which need to be zipped
-		local theTempFilePath = fn_makeZipList all_files rootPath
+		local theTempFilePath = mzpBuilder.fn_makeZipList mzpBuilderStruct.arrSource mzpBuilderStruct.rootPath
 		
 		local zipUtil = (getDir #maxRoot) + "maxzip.exe" --this is the zip-program. It's shipped with 3dsMax
-		local zipFilePath = targetPath + zipName + ".zip" --this is the zipfile we're creating
+		local zipFilePath = mzpBuilderStruct.targetPath + mzpBuilderStruct.zipName + ".mzp" --this is the zipfile we're creating
 		
 		--create a commandstring
 		local cmd = "" as stringStream
 		format "\"%\" \"%\" @%" zipUtil zipFilePath theTempFilePath to:cmd -- thanks to ofer_z--zipFile needs to be a mapped drive?
 		
 		local curDir = sysInfo.currentDir -- store current system dir
-		sysInfo.currentDir = rootPath-- set system folder (zip tree begins here)
+		sysInfo.currentDir = mzpBuilderStruct.rootPath-- set system folder (zip tree begins here)
 		(hiddendosCommand cmd exitcode:&exitcode) --EXECUTE THE ZIPPING
 		sysInfo.currentDir = curDir -- restore old system dir
-
-		--delete old files if is true
-		if deleteOld do deleteOldFiles all_files
 		
 		--output the code returned by maxzip. For a list of possible codes, check here: http://www.info-zip.org/mans/zip.html#DIAGNOSTICS
 		if exitcode == 0 then exitcode = "normal"
 		format "zip-status: % \n" exitcode
 		
 		zipFilePath --return the path of the zipfile
-	)
+	)	
 )
 
-fn_writeRunFile arrPath arrDest rootPath runIndices:runIndices
-append arrPath "mzp.run"
-
-zipStruct = zipStruct()
-theZipFile = zipStruct.fn_zipFiles rootPath:rootPath targetPath:@"N:\GitHub\mzpBuilder\Demo_files\" zipName:"Bingo" arrPath:arrPath
-renameFile theZipFile ((getFilenameFile theZipFile) + ".mzp") --change the extension
+(
+	mzpBuilder = mzpBuilder() --init the struct
+	mzpBuilder.fn_getDataFromIni @"N:\GitHub\mzpBuilder\mzpbuilder_list.ini" --get all paths from the external file
+	mzpBuilder.fn_writeRunFile mzpBuilder --create an mzp.run file
+	append mzpBuilder.arrSource "mzp.run" --this file needs to be included when zipping
+	mzpBuilder.fn_zipFiles mzpBuilder --create the mzp-file
+)

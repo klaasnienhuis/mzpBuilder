@@ -1,8 +1,16 @@
-# mzp builder
+# MZP builder
 
 creates maxscript mzp-files from a list of specified files. An mzp-file is a zip-file which behaves like an installer in 3dsMax.
 
-The ini-file describes the data neede to create the mzp-file
+The ini-file describes the data needed to create the mzp-file.
+
+# Usage
+
+Fill in the filepaths in the ini-file along with the other information specified below.
+
+Specifiy the filepath in the mzpBuilder scriptfile
+
+Execute the scriptfile
 
 # INI-file
 

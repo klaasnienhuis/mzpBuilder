@@ -2,7 +2,7 @@
 
 creates maxscript mzp-files from a list of specified files. An mzp-file is a zip-file which behaves like an installer in 3dsMax.
 
-The ini-file describes the data needed to create the mzp-file.
+The ini-file describes the data needed to create the mzp-file. Also check out the article on [my blog] (http://www.klaasnienhuis.nl/WordPress/2012/11/building-mzp-scripts-for-3dsmax/)
 
 # Usage
 

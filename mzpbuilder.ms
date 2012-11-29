@@ -27,6 +27,8 @@ Changelog:
 	2012-11-27: added mzpBuilder struct to hold data and retrieve it from an ini-file
 	2012-11-27: refactoring. Combined all methods in a single struct. Moved more settings to the ini-file
 	2012-11-27: made it as foolproof as possible without creating a gui. It's still a tool for developers, not regular users.
+	2012-11-29: edited ini-filestructure. Now the run-file has its own destination
+	2012-11-29: undo the last edit. Doesn't seem to work. Added support for a drop-file
 </SCRIPTFILE>
 *******************************************************************************************************/
 
@@ -41,8 +43,7 @@ Changelog:
 	3 THEN EXECUTE THIS FILE TO COMPILE YOUR MZP-FILE
 	***************************************************************************************************/
 	local theIniFile = @"N:\GitHub\mzpBuilder\mzpbuilder_list_demo.ini"
-	
-	
+
 	/***************************************************************************************************
 	DON'T EDIT THE STUFF BELOW, IT SHOULD WORK BY ITS OWN...
 	***************************************************************************************************/
@@ -50,13 +51,14 @@ Changelog:
 	(
 		arrSource = #(),
 		arrDestination = #(),
-		rootpath = "",
-		targetPath = "",
-		zipName = "",
 		runIndices = #(),
+		dropIndices = #(),
 		name = "scriptname",
 		description = "A short description of the script",
 		version = 0,
+		sourcerootpath="",
+		buildfilename="",
+		buildfilepath="",
 		
 		function fn_getDataFromIni theIniFile =
 		(
@@ -68,17 +70,19 @@ Changelog:
 						name=...
 						description=...
 						version=... (integer)
-					[Root] the root of the source-paths
-						rootpath=...
-					[Mzp] 
-						name=... the name of the mzp-file which is created
-						targetpath=... the place where the mzp-file should be created in the end
+					[config]
+						sourcerootpath=... --the common root of all files which need to be packaged
+						buildfilename=... --the filename of the resulting build
+						buildfilepath=... --the filepath of the resulting build
 					[Source] source and destination need to have the same amount of entries. Source[1] corresponds with Destination[1] and so on
 						1=filename with extension. Path relative to the rootpath entered above
 						2=...
 					[Destination]
 						1=filepath ending with a backslash. This is a path on the machine of the user who executes the mzp
 						2=...
+					[DropIndices]zero or more indices. Each index matches a source-file. These indexed files are also setup to run in the mzp-file after dropping it into a viewport
+						1=...(integer)
+						2=...	
 					[RunIndices]zero or more indices. Each index matches a source-file. These indexed files are also setup to run in the mzp-file
 						1=...(integer)
 						2=...	
@@ -90,10 +94,11 @@ Changelog:
 			
 			arrSource = for n in (GetINISetting theIniFile "Source") collect GetINISetting theIniFile "Source" n
 			arrDestination = for n in (GetINISetting theIniFile "Destination") collect GetINISetting theIniFile "Destination" n
-			rootpath = GetINISetting theIniFile "root" "rootpath"
-			targetpath = GetINISetting theIniFile "Mzp" "targetpath"
-			zipName = GetINISetting theIniFile "Mzp" "name"
+			sourcerootpath = GetINISetting theIniFile "config" "sourcerootpath"
+			buildfilepath = GetINISetting theIniFile "config" "buildfilepath"
+			buildfilename = GetINISetting theIniFile "config" "buildfilename"
 			runIndices = for n in (GetINISetting theIniFile "RunIndices") collect (GetINISetting theIniFile "RunIndices" n) as integer
+			dropIndices = for n in (GetINISetting theIniFile "dropIndices") collect (GetINISetting theIniFile "dropIndices" n) as integer
 			name = GetINISetting theIniFile "Header" "name"
 			description = GetINISetting theIniFile "Header" "description"
 			version = (GetINISetting theIniFile "Header" "version") as integer
@@ -111,21 +116,26 @@ Changelog:
 				<string> the path to the mzp.run file
 			</FUNCTION>*/
 			
-			local theRunFilePath = mzpBuilderStruct.rootPath + "mzp.run" --destination path
-			makeDir (getFilenamePath  theRunFilePath)
-			if doesFileExist theRunFilePath do deleteFile theRunFilePath --delete old run file if it exists
+			local theRunFilePath = mzpBuilderStruct.sourcerootpath + "mzp.run" --destination path for the run-file
+			if doesFileExist theRunFilePath then deleteFile theRunFilePath else makeDir (getFilenamePath  theRunFilePath)--delete old run file if it exists or create the targetdirectory
 			
 			local theRunFile
 			try (theRunFile = createFile theRunFilePath) catch (print "File: " + theRunFilePath + "cannot be created"; return false)
 			
 			--format the content to the file
-			format "name \"%\"\ndescription \"%\"\nversion %\n\n" mzpBuilderStruct.name mzpBuilderStruct.description mzpBuilderStruct.version to:theRunFile --the header
-			
-			for i = 1 to mzpBuilderStruct.arrSource.count do format "copy \"%\" to \"%\"\n" mzpBuilderStruct.arrSource[i] mzpBuilderStruct.arrDestination[i] to:theRunFile --all copy-operations
+			--THE HEADER
+			format "name \"%\"\ndescription \"%\"\nversion %\n\n" mzpBuilderStruct.name mzpBuilderStruct.description mzpBuilderStruct.version to:theRunFile 
+			--ALL COPY-OPERATIONS
+			for i = 1 to mzpBuilderStruct.arrSource.count do format "copy \"%\" to \"%\"\n" mzpBuilderStruct.arrSource[i] mzpBuilderStruct.arrDestination[i] to:theRunFile 
 			format "\n" to:theRunFile	
-			for i in mzpBuilderStruct.runIndices do format "run %\n" (mzpBuilderStruct.arrDestination[i] + (filenameFromPath  mzpBuilderStruct.arrSource[i])) to:theRunFile --all run-operations
-				
+			--ALL DROP-OPERATIONS
+			for i in mzpBuilderStruct.dropIndices do format "drop %\n" (mzpBuilderStruct.arrDestination[i] + (filenameFromPath  mzpBuilderStruct.arrSource[i])) to:theRunFile 
+			format "\n" to:theRunFile	
+			--ALL RUN-OPERATIONS
+			for i in mzpBuilderStruct.runIndices do format "run %\n" (mzpBuilderStruct.arrDestination[i] + (filenameFromPath  mzpBuilderStruct.arrSource[i])) to:theRunFile 
+			--CLEANING UP
 			format "\nclear temp on MAX exit" to:theRunFile
+				
 			flush theRunFile
 			close theRunFile
 			
@@ -149,8 +159,7 @@ Changelog:
 			-- generate a temporary file with the list of files to be archived
 			--TODO: check if an alternative folder is an option
 			local theZipListPath = "C:/temp/" + "~mzpBuilderZipList.tmp" -- targetPath --need a path without any spaces!!
-			makeDir (getFilenamePath  theZipListPath)
-			if doesFileExist theZipListPath do deleteFile theZipListPath -- delete old tmp file if exist
+			if doesFileExist theZipListPath then deleteFile theZipListPath else makeDir (getFilenamePath  theZipListPath)-- delete old tmp file if it exists or create the folder
 			
 			local theZipList
 			try (theZipList = createFile theZipListPath) catch (print "File: " + theZipListPath + "cannot be created"; return false)
@@ -174,17 +183,19 @@ Changelog:
 			</FUNCTION>*/
 			
 			--create the ziplist. This is the list of files which need to be zipped
-			local theTempFilePath = mzpBuilder.fn_makeZipList mzpBuilderStruct.arrSource mzpBuilderStruct.rootPath
+			local theTempFilePath = mzpBuilder.fn_makeZipList mzpBuilderStruct.arrSource mzpBuilderStruct.sourcerootpath
 			
 			local zipUtil = (getDir #maxRoot) + "maxzip.exe" --this is the zip-program. It's shipped with 3dsMax
-			local zipFilePath = mzpBuilderStruct.targetPath + mzpBuilderStruct.zipName + ".mzp" --this is the zipfile we're creating
+			
+			local zipFilePath = mzpBuilderStruct.buildfilepath + mzpBuilderStruct.buildfilename + ".mzp" --this is the zipfile we're creating
+			if doesFileExist zipFilePath then deleteFile zipFilePath else makedir mzpBuilderStruct.buildfilepath-- delete old mzp file if it exists or create the folder
 			
 			--create a commandstring
 			local cmd = "" as stringStream
 			format "\"%\" \"%\" @%" zipUtil zipFilePath theTempFilePath to:cmd -- thanks to ofer_z--zipFile needs to be a mapped drive?
 			
 			local curDir = sysInfo.currentDir -- store current system dir
-			sysInfo.currentDir = mzpBuilderStruct.rootPath-- set system folder (zip tree begins here)
+			sysInfo.currentDir = mzpBuilderStruct.sourcerootpath-- set system folder (zip tree begins here)
 			(hiddendosCommand cmd exitcode:&exitcode) --EXECUTE THE ZIPPING
 			sysInfo.currentDir = curDir -- restore old system dir
 			

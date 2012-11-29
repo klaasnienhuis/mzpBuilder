@@ -1,7 +1,7 @@
 /*******************************************************************************************************
 <SCRIPTFILE>
 Created: 2012-11-26
-Last Updated: 2012-11-27
+Last Updated: 2012-11-29
 Version: 1
 
 Author: Klaas Nienhuis, mail@klaasnienhuis.nl, www.klaasnienhuis.nl
@@ -19,8 +19,14 @@ Usage:
 	you can keep this file with your project and compile your mzp's based on an ini-file repeatedly without much hassle
 	
 Features:
-
+	zips files from your developing-location to an mzp
+	create a run-file which copies and runs files from that mzp-package
+	
 Wishlist:
+	a bit more intelligence when handling filepaths
+	an integritycheck for teh supplied ini-file
+	can the ini-file be easier to fill in
+	does a gui help? Or does it make stuff more complicated?
 Changelog:
 	2012-11-26: first setup, used the zip-methods from teh sketchfab script
 	2012-11-26: added fn_writeRunFile method to write a runfile

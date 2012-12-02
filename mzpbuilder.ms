@@ -2,7 +2,7 @@
 <SCRIPTFILE>
 Created: 2012-11-26
 Last Updated: 2012-11-29
-Version: 1
+Version: 2
 
 Author: Klaas Nienhuis, mail@klaasnienhuis.nl, www.klaasnienhuis.nl
 Version: 3ds max 2012
@@ -24,7 +24,7 @@ Features:
 	
 Wishlist:
 	a bit more intelligence when handling filepaths
-	an integritycheck for teh supplied ini-file
+	an integritycheck for the supplied ini-file
 	can the ini-file be easier to fill in
 	does a gui help? Or does it make stuff more complicated?
 Changelog:
@@ -35,6 +35,8 @@ Changelog:
 	2012-11-27: made it as foolproof as possible without creating a gui. It's still a tool for developers, not regular users.
 	2012-11-29: edited ini-filestructure. Now the run-file has its own destination
 	2012-11-29: undo the last edit. Doesn't seem to work. Added support for a drop-file
+	Branch: installReadme
+	2012-11-29: also create a readme independently from teh mzp-file. Contains info on the installer, license, support and contact information
 </SCRIPTFILE>
 *******************************************************************************************************/
 
@@ -65,6 +67,10 @@ Changelog:
 		sourcerootpath="",
 		buildfilename="",
 		buildfilepath="",
+		installMessage="None provided",
+		license="None provided",
+		support="None provided",
+		contact="None provided",
 		
 		function fn_getDataFromIni theIniFile =
 		(
@@ -91,7 +97,12 @@ Changelog:
 						2=...	
 					[RunIndices]zero or more indices. Each index matches a source-file. These indexed files are also setup to run in the mzp-file
 						1=...(integer)
-						2=...	
+						2=...
+					[About]
+						installMessage=... a message which is displayed in a readme-file. This should reduce paranoia when installing an mzp from someone you don't know.
+						license=..the license for the script
+						support=... contact information for support
+						contact=... general contact information
 			Arguments:
 				<string> theIniFile: the path to the ini-file which contains the data
 			Return:
@@ -108,6 +119,11 @@ Changelog:
 			name = GetINISetting theIniFile "Header" "name"
 			description = GetINISetting theIniFile "Header" "description"
 			version = (GetINISetting theIniFile "Header" "version") as integer
+			installMessage = GetINISetting theIniFile "About" "installMessage"
+			license = GetINISetting theIniFile "About" "license"
+			support = GetINISetting theIniFile "About" "support"
+			contact = GetINISetting theIniFile "About" "contact"
+			
 		),
 		
 		function fn_writeRunFile mzpBuilderStruct = 
@@ -147,6 +163,61 @@ Changelog:
 			
 			--return the path to the listfile
 			theRunFilePath
+		),
+		
+		function fn_writeReadmeFile mzpBuilderStruct =
+		(
+			/*<FUNCTION>
+			Description:
+				Writes a readme file which is created next to the mzp-file. The readme shows similar information as the
+				run-file, only human-readable. Also a custom message can be displayed.
+			Arguments:
+				<mzpBuilder struct> mzpBuilderStruct: the struct which contains the relevant data bundled in a struct
+			Return:
+				file on disk
+				<string> the path to the readme file
+			</FUNCTION>*/
+			
+			local readmeFilePath = mzpBuilderStruct.buildfilepath + "readme.txt" --this is the readme-file we're creating
+			if doesFileExist readmeFilePath then deleteFile readmeFilePath else makeDir (getFilenamePath  readmeFilePath)--delete old readme file if it exists or create the targetdirectory
+			local readmeFile
+			try (readmeFile = createFile readmeFilePath) catch (print "File: " + readmeFilePath + "cannot be created"; return false)
+			
+			--format the content to the file
+			format "Welcome to the readme of the % script. The readme contains a list of the contents of the installer and some instructions on how to install the script.\n" mzpBuilderStruct.buildfilename to:readmeFile
+			format "You can install the mzp-file by dropping it onto any viewport, or by running it from the menu: MAXScript>>Run file...\n" to:readmeFile
+			format "If you want to check out the contents of the mzp-file yourself, you can unzip it just like a zip-file.\n" to:readmeFile
+			format "\nA message from the developer\n\t%\n" mzpBuilderStruct.installMessage to:readmeFile
+			format "\tLicense: %\n" mzpBuilderStruct.license to:readmeFile
+			format "\tSupport: %\n" mzpBuilderStruct.support to:readmeFile
+			format "\tContact: %\n\n" mzpBuilderStruct.contact to:readmeFile
+			
+			--THE HEADER
+			format "name \"%\"\ndescription \"%\"\nversion %\n\n" mzpBuilderStruct.name mzpBuilderStruct.description mzpBuilderStruct.version to:readmeFile 
+			--ALL COPY-OPERATIONS
+			format "The following files are copied to your system\n" to:readmeFile
+			for i = 1 to mzpBuilderStruct.arrSource.count do format "\t% >> %\n" mzpBuilderStruct.arrSource[i] mzpBuilderStruct.arrDestination[i] to:readmeFile 
+			format "\n" to:readmeFile	
+			--ALL DROP-OPERATIONS
+			if mzpBuilderStruct.dropIndices.count > 0 do
+			(
+				format "If dropped on the viewport, the following scripts are executed\n" to:readmeFile
+				for i in mzpBuilderStruct.dropIndices do format "\t%\n" (filenameFromPath  mzpBuilderStruct.arrSource[i]) to:readmeFile 
+				format "\n" to:readmeFile	
+			)
+			--ALL RUN-OPERATIONS
+			if mzpBuilderStruct.runIndices.count > 0 do
+			(
+				format "If executed by the menu: MAXScript>>Run file... the following scripts are executed \n" to:readmeFile
+				for i in mzpBuilderStruct.runIndices do format "\t%\n" (filenameFromPath  mzpBuilderStruct.arrSource[i]) to:readmeFile 
+				format "\n" to:readmeFile	
+			)
+				
+			flush readmeFile
+			close readmeFile
+			
+			--return the path to the listfile
+			readmeFilePath
 		),
 		
 		function fn_makeZipList arrPath rootPath =
@@ -226,7 +297,9 @@ Changelog:
 			
 			mzpBuilder.fn_getDataFromIni iniPath --get all paths from the external file
 			mzpBuilder.fn_writeRunFile mzpBuilder --create an mzp.run file
+			local readmePath = mzpBuilder.fn_writeReadmeFile mzpBuilder --create the readme file
 			append mzpBuilder.arrSource "mzp.run" --this file needs to be included when zipping
+-- 			append mzpBuilder.arrSource (pathConfig.convertPathToRelativeTo readmePathmzpBuilder.sourcerootpath) --the readme also needs to be included when zipping
 			mzpBuilder.fn_zipFiles mzpBuilder --create the mzp-file
 			
 		)

@@ -34,4 +34,9 @@ Execute the scriptfile
 			2=...	
 		[RunIndices]zero or more indices. Each index matches a source-file. These indexed files are also setup to run in the mzp-file. These are run in order
 			1=...(integer)
-			2=...	
+			2=...
+		[About]
+			installMessage=... a message which is displayed in a readme-file. This should reduce paranoia when installing an mzp from someone you don't know.
+			license=..the license for the script
+			support=... contact information for support
+			contact=... general contact information

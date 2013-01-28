@@ -23,6 +23,7 @@ Execute the scriptfile
 			sourcerootpath=... the common root of all files which need to be packaged
 			buildfilename=... the filename of the resulting build
 			buildfilepath=... the filepath of the resulting build
+			encryptscripts=boolean --encrypts all scripts if set to true. Make sure the script itself is prepared for this
 		[Source] source and destination need to have the same amount of entries. Source[1] corresponds with Destination[1] and so on
 			1=filename with extension. Path relative to the sourcerootpath entered above
 			2=...

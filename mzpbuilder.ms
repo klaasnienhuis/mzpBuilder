@@ -1,7 +1,7 @@
 /*******************************************************************************************************
 <SCRIPTFILE>
 Created: 2012-11-26
-Last Updated: 2012-11-29
+Last Updated: 2013-01-18
 Version: 2
 
 Author: Klaas Nienhuis, mail@klaasnienhuis.nl, www.klaasnienhuis.nl
@@ -36,7 +36,11 @@ Changelog:
 	2012-11-29: edited ini-filestructure. Now the run-file has its own destination
 	2012-11-29: undo the last edit. Doesn't seem to work. Added support for a drop-file
 	Branch: installReadme
-	2012-11-29: also create a readme independently from teh mzp-file. Contains info on the installer, license, support and contact information
+	2012-11-29: also create a readme independently from the mzp-file. Contains info on the installer, license, support and contact information
+	2013-01-18: added an option to encrypt all scripts
+	2013-01-28: made encryption more specific. Now you point directly to the scripts you want encrypted with an array of indices
+	2013-01-28: added the versionnumber to the filename of mzp
+	2013-01-28: added a datestamp to the filename of mzp
 </SCRIPTFILE>
 *******************************************************************************************************/
 
@@ -67,6 +71,8 @@ Changelog:
 		sourcerootpath="",
 		buildfilename="",
 		buildfilepath="",
+		encryptscripts=false,
+		encryptIndices = #(),		
 		installMessage="None provided",
 		license="None provided",
 		support="None provided",
@@ -86,6 +92,7 @@ Changelog:
 						sourcerootpath=... --the common root of all files which need to be packaged
 						buildfilename=... --the filename of the resulting build
 						buildfilepath=... --the filepath of the resulting build
+						encryptscripts=boolean --encrypts all scripts if set to true. Make sure the script itself is prepared for this
 					[Source] source and destination need to have the same amount of entries. Source[1] corresponds with Destination[1] and so on
 						1=filename with extension. Path relative to the rootpath entered above
 						2=...
@@ -116,14 +123,25 @@ Changelog:
 			buildfilename = GetINISetting theIniFile "config" "buildfilename"
 			runIndices = for n in (GetINISetting theIniFile "RunIndices") collect (GetINISetting theIniFile "RunIndices" n) as integer
 			dropIndices = for n in (GetINISetting theIniFile "dropIndices") collect (GetINISetting theIniFile "dropIndices" n) as integer
+			encryptIndices = execute (GetINISetting theIniFile "Encrypt" "theArray")
+			encryptscripts = GetINISetting theIniFile "Encrypt" "encryptscripts" as booleanclass			
 			name = GetINISetting theIniFile "Header" "name"
 			description = GetINISetting theIniFile "Header" "description"
-			version = (GetINISetting theIniFile "Header" "version") as integer
+			version = (GetINISetting theIniFile "Header" "version") as float
 			installMessage = GetINISetting theIniFile "About" "installMessage"
 			license = GetINISetting theIniFile "About" "license"
 			support = GetINISetting theIniFile "About" "support"
 			contact = GetINISetting theIniFile "About" "contact"
 			
+			--encrypt scritps and change the script-entries if needed
+			if encryptscripts do
+			(
+				for i in encryptIndices where (matchPattern arrSource[i] pattern:"*.ms") do
+				(
+					encryptScript (sourcerootpath + arrSource[i])
+					arrSource[i] = substituteString arrSource[i] ".ms" ".mse"
+				)
+			)
 		),
 		
 		function fn_writeRunFile mzpBuilderStruct = 
@@ -248,6 +266,23 @@ Changelog:
 			theZipListPath
 		),
 		
+		function fn_dateStamp =
+		(
+			/*<FUNCTION>
+			Description:
+				Create a datestamp string.
+			Arguments:
+			Return:
+				<string> a datestamp YYYY-MM-DD
+			</FUNCTION>*/
+			
+			--a timestamp string
+			local arrTime = getLocalTime()
+			local theTime = "" as StringStream
+			format "%-%-%" arrTime[1] (formattedprint arrTime[2] format:"02d") (formattedprint arrTime[4] format:"02d") to:theTime
+			theTime as string
+		),
+		
 		function fn_zipFiles mzpBuilderStruct =
 		(
 			/*<FUNCTION>
@@ -264,7 +299,7 @@ Changelog:
 			
 			local zipUtil = (getDir #maxRoot) + "maxzip.exe" --this is the zip-program. It's shipped with 3dsMax
 			
-			local zipFilePath = mzpBuilderStruct.buildfilepath + mzpBuilderStruct.buildfilename + ".mzp" --this is the zipfile we're creating
+			local zipFilePath = mzpBuilderStruct.buildfilepath + mzpBuilderStruct.buildfilename + "_" + mzpBuilder.fn_dateStamp() + "_" + (mzpBuilderStruct.version as string)+ ".mzp" --this is the zipfile we're creating
 			if doesFileExist zipFilePath then deleteFile zipFilePath else makedir mzpBuilderStruct.buildfilepath-- delete old mzp file if it exists or create the folder
 			
 			--create a commandstring

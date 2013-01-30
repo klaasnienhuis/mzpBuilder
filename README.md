@@ -15,6 +15,11 @@ Execute the scriptfile
 # INI-file
 
 	Expected structure:
+		[About]
+			installMessage=... a message which is displayed in a readme-file. This should reduce paranoia when installing an mzp from someone you don't know.
+			license=..the license for the script
+			support=... contact information for support
+			contact=... general contact information	
 		[Header] this information is not critical but helps to identify your stuff later on
 			name=...
 			description=...
@@ -23,7 +28,6 @@ Execute the scriptfile
 			sourcerootpath=... the common root of all files which need to be packaged
 			buildfilename=... the filename of the resulting build
 			buildfilepath=... the filepath of the resulting build
-			encryptscripts=boolean --encrypts all scripts if set to true. Make sure the script itself is prepared for this
 		[Source] source and destination need to have the same amount of entries. Source[1] corresponds with Destination[1] and so on
 			1=filename with extension. Path relative to the sourcerootpath entered above
 			2=...
@@ -36,8 +40,6 @@ Execute the scriptfile
 		[RunIndices]zero or more indices. Each index matches a source-file. These indexed files are also setup to run in the mzp-file. These are run in order
 			1=...(integer)
 			2=...
-		[About]
-			installMessage=... a message which is displayed in a readme-file. This should reduce paranoia when installing an mzp from someone you don't know.
-			license=..the license for the script
-			support=... contact information for support
-			contact=... general contact information
+		[Encrypt]
+			encryptscripts=boolean encrypts all scripts if set to true. Make sure the script itself is prepared for this
+			theArray=#() an array of indices. Indexed files will be encrypted. Only ms-files are supported for encryption.
